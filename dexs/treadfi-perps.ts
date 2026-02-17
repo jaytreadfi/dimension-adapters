@@ -1,4 +1,3 @@
-import { CHAIN } from "../helpers/chains";
 import { fetchBuilderCodeRevenue } from "../helpers/hyperliquid";
 import { FetchOptions, SimpleAdapter } from "../adapters/types";
 import { httpGet } from "../utils/fetchURL";
@@ -110,110 +109,28 @@ const fetchExtended = async (_a: any, _b: any, options: FetchOptions) => {
   };
 };
 
-const fetchParadex = async (_a: any, _b: any, options: FetchOptions) => {
-  const dailyVolume = options.createBalances();
-  const dailyFees = options.createBalances();
+// Generic fetcher for any TreadTools-sourced exchange
+const createTreadToolsFetcher = (exchangeKey: string) => {
+  return async (_a: any, _b: any, options: FetchOptions) => {
+    const dailyVolume = options.createBalances();
+    const dailyFees = options.createBalances();
 
-  const treadToolsData = options.preFetchedResults;
-  const paradexData = treadToolsData.data?.paradex;
+    const treadToolsData = options.preFetchedResults;
+    const exchangeData = treadToolsData.data?.[exchangeKey];
 
-  if (paradexData && typeof paradexData.dailyVolume === "number" && paradexData.dailyVolume > 0) {
-    const volume = paradexData.dailyVolume;
-    const fees = volume * TREADTOOLS_FEE_RATE;
-    dailyVolume.addCGToken("usd-coin", volume);
-    dailyFees.addCGToken("usd-coin", fees);
-  }
+    if (exchangeData && typeof exchangeData.dailyVolume === "number" && exchangeData.dailyVolume > 0) {
+      const volume = exchangeData.dailyVolume;
+      const fees = volume * TREADTOOLS_FEE_RATE;
+      dailyVolume.addCGToken("usd-coin", volume);
+      dailyFees.addCGToken("usd-coin", fees);
+    }
 
-  return {
-    dailyVolume,
-    dailyFees,
-    dailyRevenue: dailyFees,
-    dailyProtocolRevenue: dailyFees,
-  };
-};
-
-// Nado is a perps exchange on the Ink chain
-const fetchInk = async (_a: any, _b: any, options: FetchOptions) => {
-  const dailyVolume = options.createBalances();
-  const dailyFees = options.createBalances();
-
-  const treadToolsData = options.preFetchedResults;
-  const nadoData = treadToolsData.data?.nado;
-
-  if (nadoData && typeof nadoData.dailyVolume === "number" && nadoData.dailyVolume > 0) {
-    const volume = nadoData.dailyVolume;
-    const fees = volume * TREADTOOLS_FEE_RATE;
-    dailyVolume.addCGToken("usd-coin", volume);
-    dailyFees.addCGToken("usd-coin", fees);
-  }
-
-  return {
-    dailyVolume,
-    dailyFees,
-    dailyRevenue: dailyFees,
-    dailyProtocolRevenue: dailyFees,
-  };
-};
-
-// Aggregates Pacifica + Bybit (both CEX copy-trading on Solana)
-const fetchSolana = async (_a: any, _b: any, options: FetchOptions) => {
-  const dailyVolume = options.createBalances();
-  const dailyFees = options.createBalances();
-
-  const treadToolsData = options.preFetchedResults;
-  const pacificaData = treadToolsData.data?.pacifica;
-  const bybitData = treadToolsData.data?.bybit;
-
-  let totalVolume = 0;
-  if (pacificaData && typeof pacificaData.dailyVolume === "number") {
-    totalVolume += pacificaData.dailyVolume;
-  }
-  if (bybitData && typeof bybitData.dailyVolume === "number") {
-    totalVolume += bybitData.dailyVolume;
-  }
-
-  if (totalVolume > 0) {
-    const fees = totalVolume * TREADTOOLS_FEE_RATE;
-    dailyVolume.addCGToken("usd-coin", totalVolume);
-    dailyFees.addCGToken("usd-coin", fees);
-  }
-
-  return {
-    dailyVolume,
-    dailyFees,
-    dailyRevenue: dailyFees,
-    dailyProtocolRevenue: dailyFees,
-  };
-};
-
-// Aggregates Aster + Binance (both CEX copy-trading on BSC)
-const fetchBsc = async (_a: any, _b: any, options: FetchOptions) => {
-  const dailyVolume = options.createBalances();
-  const dailyFees = options.createBalances();
-
-  const treadToolsData = options.preFetchedResults;
-  const asterData = treadToolsData.data?.aster;
-  const binanceData = treadToolsData.data?.binance;
-
-  let totalVolume = 0;
-  if (asterData && typeof asterData.dailyVolume === "number") {
-    totalVolume += asterData.dailyVolume;
-  }
-  if (binanceData && typeof binanceData.dailyVolume === "number") {
-    totalVolume += binanceData.dailyVolume;
-  }
-
-  if (totalVolume > 0) {
-    const fees = totalVolume * TREADTOOLS_FEE_RATE;
-    dailyVolume.addCGToken("usd-coin", totalVolume);
-    dailyFees.addCGToken("usd-coin", fees);
-  }
-
-  return {
-    dailyVolume,
-    dailyFees,
-    dailyRevenue: dailyFees,
-    dailyProtocolRevenue: dailyFees,
+    return {
+      dailyVolume,
+      dailyFees,
+      dailyRevenue: dailyFees,
+      dailyProtocolRevenue: dailyFees,
+    };
   };
 };
 
@@ -227,28 +144,36 @@ const adapter: SimpleAdapter = {
   version: 1,
   prefetch,
   adapter: {
-    [CHAIN.HYPERLIQUID]: {
+    "Hyperliquid": {
       fetch: fetchHyperliquid,
-      start: "2025-08-01",
+      start: "2025-10-05",
     },
-    [CHAIN.STARKNET]: {
+    "Extended": {
       fetch: fetchExtended,
-      start: "2025-12-28",
+      start: "2025-12-10",
     },
-    [CHAIN.PARADEX]: {
-      fetch: fetchParadex,
+    "Paradex": {
+      fetch: createTreadToolsFetcher("paradex"),
       start: "2025-11-11",
     },
-    [CHAIN.INK]: {
-      fetch: fetchInk,
+    "Nado": {
+      fetch: createTreadToolsFetcher("nado"),
       start: "2026-01-07",
     },
-    [CHAIN.SOLANA]: {
-      fetch: fetchSolana,
+    "Pacifica": {
+      fetch: createTreadToolsFetcher("pacifica"),
+      start: "2025-10-30",
+    },
+    "Aster": {
+      fetch: createTreadToolsFetcher("aster"),
+      start: "2025-10-25",
+    },
+    "Bybit": {
+      fetch: createTreadToolsFetcher("bybit"),
       start: "2025-10-13",
     },
-    [CHAIN.BSC]: {
-      fetch: fetchBsc,
+    "Binance": {
+      fetch: createTreadToolsFetcher("binance"),
       start: "2025-10-08",
     },
   },
